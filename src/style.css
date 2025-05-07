@@ -1,0 +1,73 @@
+/* src/style.css */
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Luckiest+Guy&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif; /* Default font */
+  background-color: #1a1a2e; /* Dark background for the page itself */
+  color: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden; /* Prevent scrollbars from body if viewport is larger */
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.quiz-viewport {
+  width: 100%;
+  height: 100%;
+  /* Simulate 9:16 aspect ratio, common for mobile */
+  max-width: min(100vw, calc(100vh * 9 / 16)); /* Adjusted for vertical */
+  max-height: 100vh; /* Ensure it doesn't exceed viewport height */
+  aspect-ratio: 9 / 16;
+  background-color: #0c0c1e; /* Default scene background if nothing else loads */
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  /* border-radius: 20px; */ /* Optional: rounded corners */
+}
+
+.absolute-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Basic button reset for options if not using Tailwind's preflight sufficiently */
+button, [role="button"] { /* Added [role="button"] for semantic motion.button */
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit; /* Ensure text color is inherited for buttons */
+  cursor: pointer;
+  outline: none;
+  text-align: inherit; /* Ensure text alignment is inherited */
+  display: inline-block; /* Or block, depending on usage */
+}

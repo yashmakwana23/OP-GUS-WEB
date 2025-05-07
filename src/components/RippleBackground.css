@@ -1,0 +1,37 @@
+/* src/components/RippleBackground.css */
+
+.ripple-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    background-color: white; /* Match original background */
+}
+
+.ripple-circle {
+    position: absolute;
+    border-radius: 50%;
+    border-style: solid;
+    border-width: clamp(1px, 0.2vw, 2px); /* Responsive border width */
+    /* Use CSS variables defined in the component or default here */
+    border-color: rgba(190, 195, 205, 0.5); /* Default color */
+    /* Animation will scale and fade the circle */
+    animation-name: ripple-animation;
+    animation-timing-function: ease-out;
+    animation-iteration-count: infinite;
+    /* Duration and delay are set via inline style in the component */
+}
+
+@keyframes ripple-animation {
+    0% {
+        width: 0;
+        height: 0;
+        opacity: 0.6;
+    }
+    100% {
+        /* Scale up to fill roughly the viewport diagonal */
+        width: 150vmax; /* Use vmax to scale relative to largest viewport dim */
+        height: 150vmax;
+        opacity: 0;
+    }
+}

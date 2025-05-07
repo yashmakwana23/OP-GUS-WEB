@@ -1,0 +1,95 @@
+{
+  "videoId": "all_variants_example",
+  "totalDurationInSeconds": 27,
+  "backgroundMusic": "/audio/songAnimeQuizIntro.mp3",
+  "globalBackgroundImageUrl": null,
+  "globalBackgroundVideoUrl": "/videos/bg1.mp4",
+  "scenes": [
+    {
+      "sceneId": "q_pink_text_v2_example",
+      "sceneType": "QnA",
+      "variant": "PinkGridQuizV2",
+      "durationInSeconds": 8,
+      "props": {
+        "titleText": "Episode 1127 Recap Quiz\n Round 1/3",
+        "questionText": "Which Gorosei member is teased to arrive in Episode 1127?",
+        "referenceImageUrl": "/images/chapters/2/q1.png",
+        "options": [
+          { "id": "A", "text": "Saint Marcus" },
+          { "id": "B", "text": "Saint Saturn" },
+          { "id": "C", "text": "Saint V. Warcury" },
+          { "id": "D", "text": "Saint Nusjuro" }
+        ],
+        "correctAnswerId": "B",
+        "timerDuration": 5,
+        "crewImageUrl": "/images/one-piece-crew.png",
+        "logoUrl": "/images/anime-logo-placeholder.png",
+        "backgroundVideoUrl": null,
+        "backgroundUrl": null,
+        "enableOverlay": true,
+        "overlayColor": "rgba(0, 170, 255, 0.3)"
+      }
+    },
+    {
+      "sceneId": "q_pink_text_v1_example",
+      "sceneType": "QnA",
+      "variant": "PinkGridQuiz",
+      "durationInSeconds": 8,
+      "props": {
+        "titleText": "Episode 1127 Recap Quiz\n Round 2/3",
+        "questionText": "Which Straw Hat ally gets an action moment in Episode 1127 by fighting off Marines with agility and surprise?",
+        "referenceImageUrl": "/images/chapters/2/q2.png",
+        "options": [
+          { "id": "A", "text": "Usopp" },
+          { "id": "B", "text": "Nami" },
+          { "id": "C", "text": "Brook" },
+          { "id": "D", "text": "Bonny" }
+        ],
+        "correctAnswerId": "D",
+        "timerDuration": 5,
+        "crewImageUrl": "/images/one-piece-crew.png",
+        "logoUrl": "/images/anime-logo-placeholder.png",
+        "backgroundVideoUrl": null,
+        "backgroundUrl": null,
+        "enableOverlay": true,
+        "overlayColor": "rgba(0, 50, 100, 0.45)"
+      }
+    },
+    {
+      "sceneId": "q_pink_image_example",
+      "sceneType": "QnA",
+      "variant": "PinkGridImageQuiz",
+      "durationInSeconds": 8,
+      "props": {
+        "titleText": "Episode 1127 Recap Quiz\n Round 3/3",
+        "questionText": "Who does Luffy fight in Episode 1127?",
+        "referenceImageUrl": null,
+        "options": [
+          { "id": "A", "imageUrl": "/images/one_piece_images/Borsalino.jpg", "text": "Kizaru" },
+          { "id": "B", "imageUrl": "/images/chapters/2/q31.png", "text": "Lucci Rob" },
+          { "id": "C", "imageUrl": "/images/chapters/2/q3.png", "text": "Arlong" }
+        ],
+        "correctAnswerId": "A",
+        "timerDuration": 5,
+        "crewImageUrl": "/images/one-piece-crew.png",
+        "logoUrl": "/images/anime-logo-placeholder.png",
+        "backgroundVideoUrl": null,
+        "backgroundUrl": null,
+        "enableOverlay": true,
+        "overlayColor": "rgba(255, 96, 174, 0.21)"
+      }
+    },
+    {
+      "sceneId": "outro_scene_1",
+      "sceneType": "Outro",
+      "variant": "OutroV1",
+      "durationInSeconds": 3,
+      "props": {
+        "scoreText": "GREAT JOB!",
+        "callToAction": "Like & Subscribe for more Quizzes!",
+        "backgroundImageUrl": null,
+        "backgroundVideoUrl": null
+      }
+    }
+  ]
+}
