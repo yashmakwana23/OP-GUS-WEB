@@ -1,10 +1,11 @@
 // src/components/SpeedLines.tsx
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react'; // Added useRef
 import { motion } from 'framer-motion';
 import { seededRandomFloat } from '../utils/randomUtils';
 
+// Interface SpeedLineWebProps, SingleSpeedLine component remain the same
 interface SpeedLineWebProps {
-  id: string; // Unique key for React
+  id: string;
   angle: number;
   startRadius: number;
   maxRadius: number;
@@ -18,26 +19,21 @@ const SingleSpeedLine: React.FC<SpeedLineWebProps> = ({
   angle, startRadius, maxRadius, delaySeconds, lifeSpanSeconds, color, strokeWidth
 }) => {
   const lineVariants = {
-    hidden: {
-      pathLength: 0, // Start with the line not drawn
-      opacity: 0,
-    },
+    hidden: { pathLength: 0, opacity: 0 },
     visible: {
-      pathLength: 1, // Draw the full line
-      opacity: [0, 1, 0.8, 0], // Fade in, stay, fade out
+      pathLength: 1,
+      opacity: [0, 1, 0.8, 0],
       transition: {
         delay: delaySeconds,
-        pathLength: { duration: lifeSpanSeconds * 0.5, ease: "easeOut" }, // Draw in half lifespan
+        pathLength: { duration: lifeSpanSeconds * 0.5, ease: "easeOut" },
         opacity: { duration: lifeSpanSeconds, ease: "linear", times: [0, 0.1, 0.8, 1] },
       },
     },
   };
-
   const x1 = Math.cos(angle) * startRadius;
   const y1 = Math.sin(angle) * startRadius;
   const x2 = Math.cos(angle) * maxRadius;
   const y2 = Math.sin(angle) * maxRadius;
-
   return (
     <motion.line
       x1={x1} y1={y1} x2={x2} y2={y2}
@@ -49,18 +45,19 @@ const SingleSpeedLine: React.FC<SpeedLineWebProps> = ({
   );
 };
 
+
 interface SpeedLinesSystemProps {
   count?: number;
   color?: string;
   strokeWidth?: number;
-  maxRadiusMultiplier?: number; // Multiplier for shortest container dimension
-  minStartRadiusPercent?: number; // Percentage of shortestDim
-  maxStartRadiusPercent?: number; // Percentage of shortestDim
+  maxRadiusMultiplier?: number;
+  minStartRadiusPercent?: number;
+  maxStartRadiusPercent?: number;
   minLifespanSeconds?: number;
   maxLifespanSeconds?: number;
   seed?: string | number;
-  className?: string; // For Tailwind etc.
-  style?: React.CSSProperties; // For direct styling
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 export const SpeedLines: React.FC<SpeedLinesSystemProps> = ({
@@ -75,7 +72,7 @@ export const SpeedLines: React.FC<SpeedLinesSystemProps> = ({
   seed = 'web-speed-lines',
   className, style
 }) => {
-  const [containerSize, setContainerSize] = useState({ width: 300, height: 500 }); // Default, update with ref
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 }); // Start with 0,0 until measured
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,9 +84,15 @@ export const SpeedLines: React.FC<SpeedLinesSystemProps> = ({
         });
       }
     };
-    updateSize();
+    // Initial measurement
+    // Timeout ensures layout has settled for offsetWidth/Height
+    const timeoutId = setTimeout(updateSize, 0); 
+    
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    return () => {
+        clearTimeout(timeoutId);
+        window.removeEventListener('resize', updateSize);
+    }
   }, []);
 
   const shortestDim = Math.min(containerSize.width, containerSize.height);
@@ -101,14 +104,16 @@ export const SpeedLines: React.FC<SpeedLinesSystemProps> = ({
     for (let i = 0; i < seedStr.length; i++) {
       numSeed = (numSeed * 31 + seedStr.charCodeAt(i)) | 0;
     }
-    return numSeed + count;
+    return numSeed + count; // Ensure seed changes if count changes
   }, [seed, count]);
 
+
   const lines = useMemo(() => {
+    if (containerSize.width === 0 || containerSize.height === 0) return []; // Don't generate lines if size is unknown
+
     const lineArray: SpeedLineWebProps[] = [];
-    // Spread out delays over average lifespan to create a continuous effect
     const averageLifespan = (minLifespanSeconds + maxLifespanSeconds) / 2;
-    const totalDelayWindow = count * averageLifespan * 0.2; // Adjust 0.2 factor for density
+    const totalDelayWindow = count * averageLifespan * 0.2;
 
     for (let i = 0; i < count; i++) {
       const lineSeed = String(memoizedSeed + i);
@@ -119,18 +124,15 @@ export const SpeedLines: React.FC<SpeedLinesSystemProps> = ({
 
       lineArray.push({
         id: `${memoizedSeed}-line-${i}`,
-        angle,
-        startRadius: startRadius,
-        maxRadius: maxRadiusActual,
-        delaySeconds: delay,
-        lifeSpanSeconds: lifeSpan,
+        angle, startRadius, maxRadius: maxRadiusActual,
+        delaySeconds: delay, lifeSpanSeconds: lifeSpan,
         color: color,
         strokeWidth: strokeWidth * (0.7 + seededRandomFloat(lineSeed + 'sw') * 0.6),
       });
     }
     return lineArray;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, memoizedSeed, color, strokeWidth, maxRadiusActual, shortestDim, minStartRadiusPercent, maxStartRadiusPercent, minLifespanSeconds, maxLifespanSeconds]);
+  }, [count, color, strokeWidth, maxRadiusActual, shortestDim, minStartRadiusPercent, maxStartRadiusPercent, minLifespanSeconds, maxLifespanSeconds, memoizedSeed, containerSize]);
+
 
   return (
     <div ref={containerRef} className={className} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', ...style }}>

@@ -2,6 +2,8 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { seededRandomFloat } from '../utils/randomUtils';
 
+// ParticleData interface and interpolate function remain the same
+
 interface ParticleData {
   id: number;
   x: number; y: number;
@@ -15,23 +17,22 @@ interface ParticleData {
   initialDelayFrames: number;
   flickerFactor: number;
   aspectRatio: number;
-  elapsedFramesAfterDelay: number; // For drift calculation
+  elapsedFramesAfterDelay: number;
 }
 
 interface ParticleSystemProps {
   count?: number;
   systemSeed?: string | number;
-  particleBaseColor?: string; // e.g. 'hsl(200, 80%, 70%)' to set hue range
+  particleBaseColor?: string;
   glowOpacity?: number;
   className?: string;
   style?: React.CSSProperties;
   particleSizeMin?: number;
   particleSizeMax?: number;
-  driftAmountFactor?: number; // Multiplier for drift
-  upwardVelocityFactor?: number; // Multiplier for upward speed
+  driftAmountFactor?: number;
+  upwardVelocityFactor?: number;
 }
 
-// Simplified interpolate for this use case (from original Remotion component)
 const interpolate = (
   input: number,
   inputRange: [number, ...number[]],
@@ -54,7 +55,7 @@ const interpolate = (
         i++;
     }
     const t = (input - inputRange[i]) / (inputRange[i + 1] - inputRange[i]);
-    if (isNaN(t) || !isFinite(t)) return outputRange[i]; // Avoid NaN from division by zero
+    if (isNaN(t) || !isFinite(t)) return outputRange[i];
     return outputRange[i] + t * (outputRange[i + 1] - outputRange[i]);
 };
 
@@ -72,7 +73,11 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<ParticleData[]>([]);
-  const animationFrameIdRef = useRef<number>();
+  const animationFrameIdRef = useRef<number | undefined>(undefined); // Correctly initialized
+
+  // Store canvas dimensions in refs to be accessible in createParticle and animate
+  const canvasWidthRef = useRef(0);
+  const canvasHeightRef = useRef(0);
 
   const memoizedSystemSeed = useMemo(() => {
     let numSeed = 0;
@@ -89,30 +94,17 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let canvasWidth = canvas.offsetWidth;
-    let canvasHeight = canvas.offsetHeight;
-
-    const resizeCanvas = () => {
-        const dpr = window.devicePixelRatio || 1;
-        canvasWidth = canvas.offsetWidth;
-        canvasHeight = canvas.offsetHeight;
-        canvas.width = canvasWidth * dpr;
-        canvas.height = canvasHeight * dpr;
-        ctx.scale(dpr, dpr);
-    };
-    resizeCanvas(); // Initial size
-
     const createParticle = (index: number, isReset = false): ParticleData => {
       const particleIdSeed = memoizedSystemSeed + index + (isReset ? performance.now() : 0);
       
-      let baseHue = 15 + seededRandomFloat(String(particleIdSeed + 4)) * 40; // Default orange/yellow range
+      let baseHue = 15 + seededRandomFloat(String(particleIdSeed + 4)) * 40;
       let baseSaturation = 95 + seededRandomFloat(String(particleIdSeed + 5)) * 5;
       let baseLightness = 60 + seededRandomFloat(String(particleIdSeed + 6)) * 15;
 
       if (particleBaseColor) {
         const match = particleBaseColor.match(/hsl\((\d+),\s*(\d+)%?,\s*(\d+)%?\)/);
         if (match) {
-            baseHue = parseFloat(match[1]) + (seededRandomFloat(String(particleIdSeed + 'h_var')) * 20 - 10); // Add variance
+            baseHue = parseFloat(match[1]) + (seededRandomFloat(String(particleIdSeed + 'h_var')) * 20 - 10);
             baseSaturation = parseFloat(match[2]);
             baseLightness = parseFloat(match[3]);
         }
@@ -122,34 +114,50 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = ({
       const glowHue = baseHue + (seededRandomFloat(String(particleIdSeed + 7)) * 10 - 5);
       const pGlowColor = `hsla(${glowHue % 360}, ${baseSaturation}%, ${Math.min(100, baseLightness + 20)}%, ${glowOpacity})`;
       
-      const sceneDurationApproximation = 300; // Frames for lifespan/delay calcs
+      const sceneDurationApproximation = 300; // Frames
       const initialDelay = isReset ? 0 : seededRandomFloat(String(particleIdSeed + 3)) * (sceneDurationApproximation * 0.6);
       const maxLife = sceneDurationApproximation * (0.4 + seededRandomFloat(String(particleIdSeed + 8)) * 0.5);
 
       return {
         id: index,
-        x: (seededRandomFloat(String(particleIdSeed)) * 1.1 - 0.05) * canvasWidth,
-        y: canvasHeight * (isReset ? 1.05 : (0.4 + seededRandomFloat(String(particleIdSeed + 1)) * 0.8)), // Reset to bottom or initial spawn
+        x: (seededRandomFloat(String(particleIdSeed)) * 1.1 - 0.05) * canvasWidthRef.current,
+        y: canvasHeightRef.current * (isReset ? 1.05 : (0.4 + seededRandomFloat(String(particleIdSeed + 1)) * 0.8)),
         size: particleSizeMin + seededRandomFloat(String(particleIdSeed + 2)) * (particleSizeMax - particleSizeMin),
-        opacity: 0,
-        color: pColor,
-        glowColor: pGlowColor,
-        vx: (seededRandomFloat(String(particleIdSeed + 'vx')) * 2 - 1) * 0.3 * driftAmountFactor, // pixels/frame
-        vy: -(0.05 + seededRandomFloat(String(particleIdSeed + 'vy')) * 0.1) * upwardVelocityFactor, // pixels/frame (slower for web)
-        life: 0,
-        maxLife: maxLife,
-        initialDelayFrames: initialDelay,
+        opacity: 0, color: pColor, glowColor: pGlowColor,
+        vx: (seededRandomFloat(String(particleIdSeed + 'vx')) * 2 - 1) * 0.3 * driftAmountFactor,
+        vy: -(0.05 + seededRandomFloat(String(particleIdSeed + 'vy')) * 0.1) * upwardVelocityFactor,
+        life: 0, maxLife: maxLife, initialDelayFrames: initialDelay,
         flickerFactor: 0.4 + seededRandomFloat(String(particleIdSeed + 'flicker')) * 0.6,
         aspectRatio: 1.2 + seededRandomFloat(String(particleIdSeed + 'aspect')) * 0.6,
         elapsedFramesAfterDelay: 0,
       };
     };
+    
+    const resizeCanvas = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const newWidth = canvas.offsetWidth;
+        const newHeight = canvas.offsetHeight;
 
-    particlesRef.current = Array.from({ length: count }, (_, i) => createParticle(i));
+        canvasWidthRef.current = newWidth;
+        canvasHeightRef.current = newHeight;
+
+        if (canvas.width !== newWidth * dpr || canvas.height !== newHeight * dpr) {
+            canvas.width = newWidth * dpr;
+            canvas.height = newHeight * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        // Re-initialize particles if canvas size changes significantly to avoid clumping or sparse areas.
+        // This is a simple approach; more complex would involve repositioning existing particles.
+        // For now, let's re-create them.
+        // particlesRef.current = Array.from({ length: count }, (_, i) => createParticle(i));
+    };
+    
+    resizeCanvas(); // Set initial size and populate refs
+    particlesRef.current = Array.from({ length: count }, (_, i) => createParticle(i)); // Initialize after first resize
 
     const animate = () => {
       animationFrameIdRef.current = requestAnimationFrame(animate);
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.clearRect(0, 0, canvasWidthRef.current, canvasHeightRef.current); // Use ref for current dimensions
 
       particlesRef.current.forEach((p, index) => {
         if (p.initialDelayFrames > 0) {
@@ -160,15 +168,15 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = ({
         p.life += 1;
         p.elapsedFramesAfterDelay +=1;
 
-        if (p.life > p.maxLife || p.y < -p.size * 2 || p.x < -p.size * 2 || p.x > canvasWidth + p.size * 2) {
-          particlesRef.current[index] = createParticle(index, true); // Reset particle
+        // Check boundaries against current canvas dimensions
+        if (p.life > p.maxLife || p.y < -p.size * 2 || p.x < -p.size * 2 || p.x > canvasWidthRef.current + p.size * 2 || p.y > canvasHeightRef.current + p.size * 2) {
+          particlesRef.current[index] = createParticle(index, true);
           return;
         }
         
-        // Original drift logic adapted
         const driftXSpeed = (seededRandomFloat(String(memoizedSystemSeed + p.id + 1)) * 2 - 1) * 1.5;
-        const driftYSpeed = (seededRandomFloat(String(memoizedSystemSeed + p.id + 2)) * 2 - 2.5); // Can be positive or negative
-        const driftBaseAmount = seededRandomFloat(String(memoizedSystemSeed + p.id + 3)) * 0.5 + 0.2; // Smaller drift amount for web
+        const driftYSpeed = (seededRandomFloat(String(memoizedSystemSeed + p.id + 2)) * 2 - 2.5);
+        const driftBaseAmount = seededRandomFloat(String(memoizedSystemSeed + p.id + 3)) * 0.5 + 0.2;
 
         const driftX = (Math.sin(p.elapsedFramesAfterDelay / 40 + memoizedSystemSeed + p.id) * driftBaseAmount * driftXSpeed) * driftAmountFactor;
         const driftY = (Math.cos(p.elapsedFramesAfterDelay / 35 + memoizedSystemSeed + p.id) * driftBaseAmount * driftYSpeed) * driftAmountFactor;
@@ -184,7 +192,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = ({
         if (p.life >= 0 && p.life < p.maxLife) {
             const fadeInEnd = fadeInDuration;
             const fadeOutStart = p.maxLife - fadeOutDuration;
-            if (fadeInEnd >= fadeOutStart) {
+            if (fadeInEnd >= fadeOutStart) { // handles short lifespans
                 const peakTime = Math.max(0.01, Math.min(fadeInEnd, p.maxLife - 0.01));
                 baseOpacity = interpolate(p.life, [0, peakTime, p.maxLife], [0, maxOpacityValue, 0]);
             } else {
