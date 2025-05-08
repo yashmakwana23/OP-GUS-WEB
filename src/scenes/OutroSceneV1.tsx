@@ -35,26 +35,38 @@ const styles: Record<string, React.CSSProperties> = {
 // --- Framer Motion Variants ---
 const scoreVariant = {
     hidden: { opacity: 0, scale: 0.5, rotate: -15 },
-    visible: { opacity: 1, scale: 1, rotate: -2, transition: { type: 'spring', damping: 12, stiffness: 130, delay: 0.1 } },
+    visible: {
+        opacity: 1,
+        scale: 1,
+        rotate: -2,
+        transition: { type: 'spring', damping: 12, stiffness: 130, delay: 0.1 } // Defined correctly here
+    },
 };
 
 const ctaWordVariant = (i: number) => ({
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { type: 'spring', damping: 14, stiffness: 100, delay: 0.4 + i * 0.08 } }
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: { type: 'spring', damping: 14, stiffness: 100, delay: 0.4 + i * 0.08 } // Defined correctly here
+    }
 });
+
+// The lines below were causing the error and are redundant. They have been removed.
+// scoreVariant.visible.transition = { type: 'spring', damping: 12, stiffness: 130, delay: 0.1 };
+// ctaWordVariant(0).visible.transition = { type: 'spring', damping: 14, stiffness: 100, delay: 0.4 + 0 * 0.08 };
+
 
 interface SceneProps extends OutroV1Props {
     sceneId: string; durationInSeconds: number;
     onSceneEnd: () => void;
-    // Props passed by App.tsx, resolved from scene/global data
     backgroundImageUrl?: string | null; 
     backgroundVideoUrl?: string | null;
 }
 
 export const OutroSceneV1: React.FC<SceneProps> = ({
     sceneId, scoreText, callToAction, 
-    backgroundImageUrl, // Use this directly, App.tsx has resolved it
-    backgroundVideoUrl, // Use this directly
+    backgroundImageUrl, backgroundVideoUrl,
     durationInSeconds, onSceneEnd,
 }) => {
     useEffect(() => {
@@ -62,7 +74,7 @@ export const OutroSceneV1: React.FC<SceneProps> = ({
             onSceneEnd();
         }, durationInSeconds * 1000);
         return () => clearTimeout(timer);
-    }, [durationInSeconds, onSceneEnd]);
+    }, [durationInSeconds, onSceneEnd, sceneId]);
 
     const ctaWords = callToAction.split(/(\s+)/).filter(word => word.trim().length > 0);
 
@@ -73,11 +85,23 @@ export const OutroSceneV1: React.FC<SceneProps> = ({
           }}
           initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
         >
-             {backgroundVideoUrl && <motion.video src={backgroundVideoUrl} autoPlay muted loop playsInline style={styles.backgroundMedia} initial={{scale: 1.1}} animate={{scale: 1.3, y: -15}} transition={{duration: durationInSeconds, ease:'linear'}}/>}
-             {!backgroundVideoUrl && backgroundImageUrl && <motion.img src={backgroundImageUrl} alt="" style={styles.backgroundMedia} initial={{scale: 1.1}} animate={{scale: 1.3, y: -15}} transition={{duration: durationInSeconds, ease:'linear'}}/>}
-             <div style={styles.overlay} /> {/* Consider if overlay is always needed or configurable */}
-
-            {/* <ParticleSystem count={150} systemSeed={`outro-${sceneId}`} /> */}
+             {backgroundVideoUrl && (
+                <motion.video 
+                    key={`outro-bgvid-${sceneId}-${backgroundVideoUrl}`}
+                    src={backgroundVideoUrl} autoPlay muted loop playsInline style={styles.backgroundMedia} 
+                    initial={{scale: 1.1}} animate={{scale: 1.3, y: -15}} 
+                    transition={{duration: durationInSeconds, ease:'linear'}}
+                />
+             )}
+             {!backgroundVideoUrl && backgroundImageUrl && (
+                <motion.img 
+                    key={`outro-bgimg-${sceneId}-${backgroundImageUrl}`}
+                    src={backgroundImageUrl} alt="" style={styles.backgroundMedia} 
+                    initial={{scale: 1.1}} animate={{scale: 1.3, y: -15}} 
+                    transition={{duration: durationInSeconds, ease:'linear'}}
+                />
+             )}
+             <div style={styles.overlay} />
 
             <motion.div style={styles.container} initial="hidden" animate="visible">
                 <motion.h1 style={styles.scoreText} variants={scoreVariant}>
@@ -86,8 +110,7 @@ export const OutroSceneV1: React.FC<SceneProps> = ({
                 <motion.h2 style={styles.callToAction}>
                      {ctaWords.map((word, index) => (
                         <motion.span
-                            key={index}
-                            style={styles.ctaWordSpan}
+                            key={index} style={styles.ctaWordSpan}
                             variants={ctaWordVariant(index)}
                         >
                             {word}
