@@ -1,9 +1,7 @@
 // src/App.tsx
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'; // Import useCallback
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { parseQuizData, QuizData } from './types/quizDataSchema';
 import { AnimatePresence, motion } from 'framer-motion';
-
-// --- Scene Component Imports ---
 import { PinkGridQuizV2Scene } from './scenes/PinkGridQuizV2Scene';
 import { OutroSceneV1 } from './scenes/OutroSceneV1';
 
@@ -18,12 +16,29 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [userScores, setUserScores] = useState<Record<string, { isCorrect: boolean | null, sceneId: string }>>({});
-  const [quizSessionId, setQuizSessionId] = useState(() => Date.now().toString());
+  const [quizSessionId, setQuizSessionId] = useState(() => `sid-${Date.now()}`);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   const globalBackgroundMusicRef = useRef<HTMLAudioElement>(null);
-  const isGlobalMusicPlayingRef = useRef(false); // To track if we initiated play
+  const lastSetGlobalMusicSrcRef = useRef<string | null | undefined>(null);
 
-  // --- Data Fetching ---
+  const globalBackgroundVideoRef = useRef<HTMLVideoElement>(null); // Ref for global video
+  const lastSetGlobalVideoSrcRef = useRef<string | null | undefined>(null); // Ref to track last set global video src
+
+  // console.log(`APP RENDER - Index: ${currentSceneIndex}, Interacted: ${hasInteracted}`);
+
+  const handlePageClickForInteraction = useCallback(() => {
+    if (!hasInteracted) {
+      // console.log("APP: Page interaction detected. Unlocking audio.");
+      setHasInteracted(true);
+    }
+  }, [hasInteracted]);
+
+  useEffect(() => {
+    document.addEventListener('pointerdown', handlePageClickForInteraction, { once: true });
+    return () => document.removeEventListener('pointerdown', handlePageClickForInteraction);
+  }, [handlePageClickForInteraction]);
+
   useEffect(() => {
     const fetchQuizData = async () => {
       setIsLoading(true); setError(null);
@@ -35,53 +50,81 @@ const App: React.FC = () => {
         setQuizData(validatedData);
         setUserScores({});
         setCurrentSceneIndex(0);
-        setQuizSessionId(Date.now().toString());
-        isGlobalMusicPlayingRef.current = false; // Reset on new data
       } catch (e: any) {
-        console.error("Data loading/parsing error:", e);
+        console.error("APP: Data loading/parsing error:", e);
         setError(e.message || "Failed to load quiz data.");
       } finally {
         setIsLoading(false);
       }
     };
     fetchQuizData();
-  }, []);
+  }, [quizSessionId]);
 
-  // --- Global Music Handling ---
   useEffect(() => {
     const audioEl = globalBackgroundMusicRef.current;
+    const musicSrc = quizData?.backgroundMusic;
+    const musicVolume = quizData?.backgroundMusicVolume ?? 0.05;
+
     if (audioEl) {
-      const musicSrc = quizData?.backgroundMusic;
       if (musicSrc) {
-        if (audioEl.src !== musicSrc) {
+        if (lastSetGlobalMusicSrcRef.current !== musicSrc) {
           audioEl.src = musicSrc;
-          audioEl.load(); // Important: ensure new src is loaded
-          isGlobalMusicPlayingRef.current = false; // Reset play attempt flag for new src
+          audioEl.load();
+          lastSetGlobalMusicSrcRef.current = musicSrc;
         }
-        audioEl.volume = 0.05;
+        audioEl.volume = musicVolume;
         audioEl.loop = true;
-
-        // Attempt to play only if not already initiated by us and is paused
-        if (audioEl.paused && !isGlobalMusicPlayingRef.current) {
-          audioEl.play()
-            .then(() => { isGlobalMusicPlayingRef.current = true; })
-            .catch(e => {
-              console.warn("Global music autoplay blocked:", e);
-              isGlobalMusicPlayingRef.current = false; // Autoplay failed
-            });
-        } else if (!audioEl.paused) {
-            isGlobalMusicPlayingRef.current = true; // Already playing
-        }
-
-      } else { // No music source
-        if (!audioEl.paused) {
+        if (hasInteracted && audioEl.paused) {
+          audioEl.play().catch(e => console.warn(`APP GLOBAL MUSIC: Play failed for ${musicSrc}:`, e.message));
+        } else if (!hasInteracted && !audioEl.paused) {
           audioEl.pause();
         }
-        audioEl.src = ""; // Clear src if no music
-        isGlobalMusicPlayingRef.current = false;
+      } else {
+        if (!audioEl.paused) audioEl.pause();
+        if (lastSetGlobalMusicSrcRef.current) {
+          audioEl.src = "";
+          audioEl.load();
+          lastSetGlobalMusicSrcRef.current = null;
+        }
       }
     }
-  }, [quizData?.backgroundMusic]); // Re-run only if the music source string changes
+  }, [quizData, hasInteracted]);
+
+  // Effect to manage global background video playback
+  useEffect(() => {
+    const videoEl = globalBackgroundVideoRef.current;
+    const videoSrc = quizData?.globalBackgroundVideoUrl;
+
+    // console.log(`APP GLOBAL VIDEO effect: Fired. Src: ${videoSrc}, LastSet: ${lastSetGlobalVideoSrcRef.current}`);
+
+    if (videoEl) {
+      if (videoSrc) {
+        videoEl.style.display = 'block'; // Make sure it's visible
+        if (lastSetGlobalVideoSrcRef.current !== videoSrc) {
+          // console.log(`APP GLOBAL VIDEO: Setting new SRC: ${videoSrc}`);
+          videoEl.src = videoSrc;
+          videoEl.load(); // Important for new src
+          lastSetGlobalVideoSrcRef.current = videoSrc;
+        }
+        // autoPlay, muted, loop, playsInline are attributes on the <video> tag
+        // but ensure it plays if it was paused for some reason and should be playing
+        if (videoEl.paused) {
+            videoEl.play().catch(e => console.warn(`App Global BG Video play failed: ${e.message}`));
+        }
+      } else {
+        // No global video src
+        if (lastSetGlobalVideoSrcRef.current) { // If there was a src before
+          // console.log(`APP GLOBAL VIDEO: Clearing SRC.`);
+          videoEl.pause();
+          videoEl.removeAttribute('src'); // Clear src
+          videoEl.load(); // Unload previous source
+          lastSetGlobalVideoSrcRef.current = null;
+        }
+        videoEl.style.display = 'none'; // Hide the video element
+      }
+    }
+  }, [quizData]); // Depends only on quizData for the URL
+
 
   const currentSceneData = useMemo(() => {
     if (!quizData || currentSceneIndex >= quizData.scenes.length) return null;
@@ -92,78 +135,83 @@ const App: React.FC = () => {
     if (!currentSceneData) return null;
     const Comp = sceneComponentMap[currentSceneData.variant];
     if (!Comp) {
-      console.error(`Missing component map for variant: '${currentSceneData.variant}'`);
       setError(`Component not found for "${currentSceneData.variant}".`);
       return null;
     }
     return Comp;
   }, [currentSceneData]);
 
-  // --- Scene Navigation (Stable Callback) ---
   const handleSceneEnd = useCallback((result?: { sceneId: string, isCorrect: boolean | null }) => {
-    if (result && quizData) { // quizData is from state, stable between calls unless it actually changes
+    if (result && quizData) {
       const originalSceneId = quizData.scenes.find(s => s.sceneId === result.sceneId)?.sceneId || result.sceneId;
-      setUserScores(prev => ({ ...prev, [originalSceneId]: { isCorrect: result.isCorrect, sceneId: originalSceneId } }));
+      setUserScores(prev => ({ ...prev, [originalSceneId]: { isCorrect: result.isCorrect, sceneId: originalSceneId }}));
     }
-
-    // Check against quizData directly from state here to ensure it's the latest.
     if (quizData && currentSceneIndex < quizData.scenes.length - 1) {
-      setCurrentSceneIndex(prevIndex => prevIndex + 1);
+      setCurrentSceneIndex(prev => prev + 1);
     } else {
-      // Use a functional update for userScores if you need the very latest here for logging,
-      // or accept that userScores in this log might be from the closure of this useCallback instance.
-      // For just logging, it's usually fine.
-      console.log("Quiz finished! Final Scores (at time of finish):", userScores);
+      console.log("APP: Quiz finished!");
     }
-  }, [quizData, currentSceneIndex, userScores]); // userScores is included because it's used in the "Quiz finished" log.
-                                     // If that log was removed or handled differently, userScores could be removed from deps.
-
+  }, [quizData, currentSceneIndex]);
 
   if (isLoading) return <div className="quiz-viewport flex justify-center items-center bg-gray-800 text-white text-xl">Loading Quiz...</div>;
-  if (error) return <div className="quiz-viewport flex flex-col justify-center items-center bg-red-800 text-white p-5 text-center"><h2 className="text-2xl font-bold mb-3">Error</h2><p>{error}</p><button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-semibold">Reload Page</button></div>;
-  if (!quizData || !currentSceneData || !SceneComponent) return <div className="quiz-viewport flex justify-center items-center bg-yellow-600 text-black p-4 text-center font-semibold">Error preparing scene. Check configuration.</div>;
+  if (error) return (
+    <div className="quiz-viewport flex flex-col justify-center items-center bg-red-800 text-white p-5 text-center">
+      <h2 className="text-2xl font-bold mb-3">Error</h2><p className="mb-4">{error}</p>
+      <button onClick={() => setQuizSessionId(`sid-${Date.now()}`)} className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-semibold">Reload Quiz</button>
+    </div>
+  );
+  if (!quizData || !currentSceneData || !SceneComponent) return <div className="quiz-viewport flex justify-center items-center bg-yellow-600 text-black p-4 text-center font-semibold">Preparing scene...</div>;
 
-  const appLevelBgVideoUrl = quizData.globalBackgroundVideoUrl;
   const appLevelBgImageUrl = quizData.globalBackgroundImageUrl;
-  const sceneSpecificProps = currentSceneData.props || {};
 
+  const sceneSpecificProps = currentSceneData.props || {};
   const componentProps: any = {
-    ...sceneSpecificProps,
+    ...sceneSpecificProps, // Pass all specific props from data
     sceneId: currentSceneData.sceneId,
     durationInSeconds: currentSceneData.durationInSeconds,
-    onSceneEnd: handleSceneEnd, // Now a stable callback
+    onSceneEnd: handleSceneEnd,
+    hasInteracted: hasInteracted,
+    // Pass global URLs for potential fallback use within scenes (though App handles the main global BG)
+    // These props to scenes might not be strictly needed if App.tsx handles all global backgrounds
+    // and scenes only handle their own specific backgrounds.
     globalBackgroundImageUrl: quizData.globalBackgroundImageUrl,
-    globalBackgroundVideoUrl: quizData.globalBackgroundVideoUrl,
+    globalBackgroundVideoUrl: quizData.globalBackgroundVideoUrl, // Scene might use this if its own video is undefined
   };
 
+  // Consolidate specific background prop names
   if ('backgroundImageUrl' in sceneSpecificProps && sceneSpecificProps.backgroundImageUrl !== undefined) {
     componentProps.backgroundImageUrl = sceneSpecificProps.backgroundImageUrl;
   } else if ('backgroundUrl' in sceneSpecificProps && sceneSpecificProps.backgroundUrl !== undefined) {
-    componentProps.backgroundImageUrl = sceneSpecificProps.backgroundUrl;
+    componentProps.backgroundImageUrl = sceneSpecificProps.backgroundUrl; // for older schema compatibility
   }
-
   if ('backgroundVideoUrl' in sceneSpecificProps && sceneSpecificProps.backgroundVideoUrl !== undefined) {
     componentProps.backgroundVideoUrl = sceneSpecificProps.backgroundVideoUrl;
   }
 
+
   return (
     <div className="quiz-viewport bg-slate-900">
       <div className="absolute-fill -z-10">
-        {appLevelBgVideoUrl ? (
-          <video
-            key={`app-bg-vid-${appLevelBgVideoUrl}`} // Keyed for replacement, not re-mount on App re-render
-            src={appLevelBgVideoUrl} autoPlay muted loop playsInline
+        {/* Global Video managed by useEffect */}
+        <video
+            ref={globalBackgroundVideoRef}
+            key="app-global-bg-vid-managed" // Stable key as it's always rendered
+            autoPlay muted loop playsInline
             className="absolute-fill object-cover"
-            onError={(e) => console.error("App background video error:", appLevelBgVideoUrl, e)}
-          />
-        ) : appLevelBgImageUrl ? (
+            style={{ display: 'none' }} // Initially hidden, display managed by useEffect
+            onError={(e) => console.error("App Global BG video element error:", (e.target as HTMLVideoElement).currentSrc, e)}
+        />
+        {/* Fallback Global Image if no video is active/set by quizData */}
+        {(!quizData?.globalBackgroundVideoUrl && appLevelBgImageUrl) && (
           <img
-            key={`app-bg-img-${appLevelBgImageUrl}`}
+            key={`app-bg-img-${appLevelBgImageUrl}`} // Key based on URL
             src={appLevelBgImageUrl} alt="" className="absolute-fill object-cover" loading="lazy"
-            onError={(e) => console.error("App background image error:", appLevelBgImageUrl, e)}
+            onError={(e) => console.error("App BG image error:", appLevelBgImageUrl, e)}
           />
-        ) : (
-          <div className="absolute-fill bg-gradient-to-br from-slate-800 to-slate-950"></div>
+        )}
+         {/* Fallback gradient if no global image/video at all */}
+        {(!quizData?.globalBackgroundVideoUrl && !appLevelBgImageUrl) && (
+            <div className="absolute-fill bg-gradient-to-br from-slate-800 to-slate-950"></div>
         )}
       </div>
 
@@ -171,7 +219,7 @@ const App: React.FC = () => {
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          key={`${quizSessionId}-${currentSceneData.sceneId}-${currentSceneIndex}`} // This key forces re-mount on scene change
+          key={`${quizSessionId}-${currentSceneData.sceneId}`}
           className="absolute-fill z-0"
           initial={{ opacity: 0, x: "30%" }}
           animate={{ opacity: 1, x: "0%" }}
@@ -184,5 +232,4 @@ const App: React.FC = () => {
     </div>
   );
 };
-
 export default App;
